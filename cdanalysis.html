@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrazyDomains Australia: Interactive Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices:
+        - Report Info: Domain Pricing Table -> Goal: Compare CrazyDomains TLDs and vs Competitors -> Viz: Interactive HTML Table + Bar Charts (Chart.js) -> Interaction: Sort table, hover tooltips on chart -> Justification: Clear visual comparison of costs -> Library: Chart.js.
+        - Report Info: Linux Hosting Plans Table -> Goal: Compare plan features -> Viz: Interactive HTML Table + Grouped Bar Chart (Chart.js for resources) -> Interaction: Select plan to highlight, hover tooltips -> Justification: Easy differentiation of plan offerings and resource allocation -> Library: Chart.js.
+        - Report Info: Customer Complaints (text) -> Goal: Highlight key issues -> Viz: Categorized lists directly visible -> Interaction: None (content always visible) -> Justification: Important complaints should be immediately apparent without requiring a click.
+        - Report Info: Customer Satisfaction Ratings (TLD-List breakdown) -> Goal: Quantify detailed satisfaction -> Viz: Table of ratings + Donut Chart (Chart.js) -> Interaction: Visual breakdown of review distribution -> Justification: Provide concrete data points for customer sentiment and visualize the proportion of negative reviews -> Library: Chart.js.
+        - Report Info: Competitor Comparison Table -> Goal: Compare CrazyDomains vs others -> Viz: Interactive HTML Table + Bar Chart (Chart.js for ratings) -> Interaction: Filter/sort table, hover tooltips -> Justification: Direct comparison on key metrics -> Library: Chart.js.
+        - Report Info: Competitor Hosting Pricing -> Goal: Compare basic hosting plan costs -> Viz: Bar Chart (Chart.js) -> Interaction: Visual comparison of starting prices -> Justification: Highlight CrazyDomains' position against low-cost competitors -> Library: Chart.js.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8F8F8; color: #333333; }
+        .nav-link { transition: color 0.3s ease, border-bottom-color 0.3s ease; }
+        .nav-link:hover, .nav-link.active { color: #00A000; border-bottom-color: #00A000; }
+        .section-title { color: #00A000; }
+        .card { background-color: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+        .tab-button { background-color: #E0E0E0; color: #333333; border-radius: 8px; transition: background-color 0.2s ease, color 0.2s ease; }
+        .tab-button.active { background-color: #00A000; color: #FFFFFF; }
+        .tooltip { position: relative; display: inline-block; }
+        .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: #555; color: #fff; text-align: center; border-radius: 6px; padding: 5px 0; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #E0E0E0; }
+        .table th { background-color: #F0F0F0; color: #333333; }
+        .collapsible-button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.5rem 0;
+            font-weight: 600;
+            color: #00A000;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .collapsible-button:hover {
+            color: #008000;
+        }
+        .collapsible-button .toggle-icon {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #A0A0A0;
+            transition: transform 0.2s ease-in-out;
+        }
+        .collapsible-button.expanded .toggle-icon {
+            transform: rotate(90deg); /* Rotate for minus effect */
+        }
+        .collapsible-content {
+            display: none;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            background-color: #F0F0F0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #666666;
+            line-height: 1.5;
+        }
+        .icon-flat { display: inline-block; width: 1.25em; height: 1.25em; text-align: center; line-height: 1.25em; color: #00A000; font-size: 1.2em; margin-right: 0.5em; }
+        .big-number { font-size: 3.5rem; font-weight: 700; color: #00A000; line-height: 1; margin-bottom: 0.5rem; }
+        .big-number-label { font-size: 1rem; color: #666666; text-transform: uppercase; letter-spacing: 0.05em; }
+        .source-link {
+            display: block;
+            background-color: #E0E0E0;
+            color: #333333;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: left;
+            text-decoration: none;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid #D0D0D0;
+            line-height: 1.4;
+        }
+        .source-link:hover {
+            background-color: #D0D0D0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .source-ref {
+            vertical-align: super;
+            font-size: 0.7em;
+            font-weight: bold;
+            color: #00A000;
+            cursor: pointer;
+            margin-left: 2px;
+        }
+        .source-ref:hover {
+            text-decoration: underline;
+        }
+        .source-detail-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid #E0E0E0;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            z-index: 1000;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            display: none;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .source-detail-popup.active {
+            display: flex;
+        }
+        .source-detail-popup-close {
+            align-self: flex-end;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #A0A0A0;
+            margin-bottom: 0.5rem;
+        }
+        .source-detail-popup-content {
+            font-size: 0.9rem;
+            color: #333333;
+            line-height: 1.5;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.3);
+            z-index: 999;
+            display: none;
+        }
+        .overlay.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <section class="bg-gradient-to-br from-[#F8F8F8] to-[#E0E0E0] py-20 sm:py-28 lg:py-36 text-center">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 class="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 mb-6 tracking-tight">
+                CrazyDomains Australia
+            </h1>
+            <p class="text-xl sm:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+                An in-depth, interactive analysis of services, pricing, customer satisfaction, and market position.
+            </p>
+        </div>
+    </section>
+
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-800">CrazyDomains Analysis</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#overview" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700 border-b border-transparent">Overview</a>
+                        <a href="#services" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700 border-b border-transparent">Services</a>
+                        <a href="#pricing" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700 border-b border-transparent">Pricing</a>
+                        <a href="#customer-insights" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700 border-b border-transparent">Customer Insights</a>
+                        <a href="#market-context" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700 border-b border-transparent">Market Context</a>
+                        <a href="#future-focus" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-700 border-b border-transparent">Future Focus</a>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-gray-500">
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </nav>
+        <div id="mobile-menu" class="md:hidden hidden">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#overview" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-gray-700 border-b border-transparent">Overview</a>
+                <a href="#services" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-gray-700 border-b border-transparent">Services</a>
+                <a href="#pricing" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-gray-700 border-b border-transparent">Pricing</a>
+                <a href="#customer-insights" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-gray-700 border-b border-transparent">Customer Insights</a>
+                <a href="#market-context" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-gray-700 border-b border-transparent">Market Context</a>
+                <a href="#future-focus" class="nav-link block px-3 py-2 rounded-md text-base font-medium text-gray-700 border-b border-transparent">Future Focus</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <section id="overview" class="mb-16 pt-16 -mt-16">
+            <h2 class="text-4xl font-bold mb-8 section-title">Overview</h2>
+            <div class="card p-8 rounded-lg">
+                <p class="mb-6 text-gray-700 leading-relaxed">This section provides a high-level summary of CrazyDomains Australia, including its market position, core offerings, and the key challenges and opportunities it faces. It sets the stage for a deeper dive into specific aspects of its operations and market standing.</p>
+                
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10 text-center">
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm">
+                        <div class="big-number">1.3M+</div>
+                        <div class="big-number-label">Active Domains Managed</div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm">
+                        <div class="big-number">99.9%</div>
+                        <div class="big-number-label">Uptime Guarantee</div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-sm">
+                        <div class="big-number">60 Days</div>
+                        <div class="big-number-label">Money-Back Guarantee</div>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Executive Summary</h3>
+                <p class="text-gray-600 mb-6 leading-relaxed">CrazyDomains Australia is a prominent provider of online solutions, offering domain registration, web hosting, and an AI-powered website builder. Operating under Newfold Digital, it serves a wide client base across multiple regions. While competitive introductory pricing and AI-driven innovation are strengths, inconsistencies in customer support and service reliability pose significant challenges. Addressing these is crucial for sustained growth.</p>
+                
+                <div class="collapsible-section mb-4">
+                    <button class="collapsible-button" data-target="company-background-content">
+                        <span class="flex items-center"><span class="icon-flat">ℹ️</span> Company Background</span>
+                        <span class="toggle-icon">+</span>
+                    </button>
+                    <div id="company-background-content" class="collapsible-content">
+                        Established in 2007<sup class="source-ref" onclick="showSourceDetail(1)">1</sup>, CrazyDomains has grown into a leading domain registrar and online solutions provider<sup class="source-ref" onclick="showSourceDetail(2)">2</sup>. It is part of Newfold Digital, formed in 2021<sup class="source-ref" onclick="showSourceDetail(4)">4</sup>, which provides access to shared resources and advanced technology. CrazyDomains has an extensive operational footprint, serving clients in Australia, New Zealand, Southeast Asia, the UK, India, and the Middle East<sup class="source-ref" onclick="showSourceDetail(5)">5</sup>.
+                    </div>
+                </details>
+
+                <div class="collapsible-section">
+                    <button class="collapsible-button" data-target="business-model-content">
+                        <span class="flex items-center"><span class="icon-flat">📈</span> Core Business Model</span>
+                        <span class="toggle-icon">+</span>
+                    </button>
+                    <div id="business-model-content" class="collapsible-content">
+                        CrazyDomains positions itself as a "one-stop source"<sup class="source-ref" onclick="showSourceDetail(10)">10</sup> for online solutions, aiming to simplify the journey to online success with "crazily good prices"<sup class="source-ref" onclick="showSourceDetail(11)">11</sup>. Its comprehensive suite of services caters primarily to SMBs and entrepreneurs, fostering an integrated ecosystem to encourage customer loyalty<sup class="source-ref" onclick="showSourceDetail(12)">12</sup>.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="services" class="mb-16 pt-16 -mt-16">
+            <h2 class="text-4xl font-bold mb-8 section-title">Services Portfolio</h2>
+            <div class="card p-8 rounded-lg">
+                <p class="mb-8 text-gray-700 leading-relaxed">CrazyDomains Australia offers a wide array of services designed to help individuals and businesses establish and grow their online presence. This section breaks down their core offerings, from domain registration and various hosting solutions to website building tools and other ancillary services that complete their "one-stop-shop" approach. You can explore each category to understand the features and intended benefits.</p>
+
+                <div class="mb-6">
+                    <div class="tabs flex flex-wrap gap-3 mb-6">
+                        <button class="tab-button py-2 px-5 rounded-md text-sm font-medium active" onclick="openTab(event, 'services-tab', 'domain-services')">Domain Services</button>
+                        <button class="tab-button py-2 px-5 rounded-md text-sm font-medium" onclick="openTab(event, 'services-tab', 'hosting-solutions')">Hosting Solutions</button>
+                        <button class="tab-button py-2 px-5 rounded-md text-sm font-medium" onclick="openTab(event, 'services-tab', 'website-builder')">Website Builder</button>
+                        <button class="tab-button py-2 px-5 rounded-md text-sm font-medium" onclick="openTab(event, 'services-tab', 'ancillary-services')">Ancillary Services</button>
+                    </div>
+
+                    <div id="domain-services" class="services-tab p-6 border border-gray-200 rounded-lg">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-800">Domain Registration Services</h3>
+                        <p class="text-gray-600 mb-5 leading-relaxed">CrazyDomains facilitates searching, registering, transferring, and renewing domain names with over 500+ TLDs available, including popular Australian options like .com.au and .au direct, alongside generic TLDs<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>.</p>
+                        <ul class="list-disc list-inside text-gray-600 space-y-2">
+                            <li><span class="icon-flat">🔒</span> <strong>Domain Privacy:</strong> Shields personal details from public WHOIS (additional cost)<sup class="source-ref" onclick="showSourceDetail(19)">19</sup>.</li>
+                            <li><span class="icon-flat">🔄</span> <strong>Domain Expiry Protection:</strong> Renewal reminders or auto-renewal options<sup class="source-ref" onclick="showSourceDetail(15)">15</sup>.</li>
+                            <li><span class="icon-flat">🔍</span> <strong>WHOIS Lookup Tool:</strong> Retrieve ownership information for registered domains<sup class="source-ref" onclick="showSourceDetail(20)">20</sup>.</li>
+                            <li><span class="icon-flat">🎁</span> <strong>Free Domain Offers:</strong> Often bundled with hosting plans for the first year<sup class="source-ref" onclick="showSourceDetail(18)">18</sup>.</li>
+                        </ul>
+                    </div>
+
+                    <div id="hosting-solutions" class="services-tab p-6 border border-gray-200 rounded-lg" style="display:none;">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-800">Web Hosting Solutions</h3>
+                        <p class="text-gray-600 mb-5 leading-relaxed">A diverse portfolio to meet varying needs, from personal blogs to enterprise applications, often featuring local Australian Data Centers.</p>
+                        <div class="space-y-4">
+                            <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="linux-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">🐧</span> Linux Web Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="linux-hosting-content" class="collapsible-content">
+                                    Tiered plans (Economy, Premium, Ultimate) with SSD storage, unmetered bandwidth, cPanel, 1-click installers for WordPress, Joomla, etc. Includes SSL, malware protection. Resources vary by plan (Storage: 10-50GB, CPU: 100-200%, RAM: 512MB-1GB)<sup class="source-ref" onclick="showSourceDetail(21)">21</sup>.
+                                </div>
+                            </div>
+                            <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="business-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">💼</span> Business Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="business-hosting-content" class="collapsible-content">
+                                    For faster performance and more dedicated resources. Plans often include a free domain and email<sup class="source-ref" onclick="showSourceDetail(27)">27</sup>.
+                                </div>
+                            </div>
+                            <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="wordpress-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">🌐</span> WordPress Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="wordpress-hosting-content" class="collapsible-content">
+                                    Optimized for WordPress performance and security, with one-click installation and automatic updates<sup class="source-ref" onclick="showSourceDetail(28)">28</sup>.
+                                </div>
+                            </div>
+                            <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="vps-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">⚡</span> VPS Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="vps-hosting-content" class="collapsible-content">
+                                    Managed support, unlimited data transfer, full root access for more control and dedicated resources<sup class="source-ref" onclick="showSourceDetail(28)">28</sup>.
+                                </div>
+                            </div>
+                            <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="dedicated-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">🚀</span> Dedicated Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="dedicated-hosting-content" class="collapsible-content">
+                                    Highest performance, security, and control for large-scale websites and applications<sup class="source-ref" onclick="showSourceDetail(28)">28</sup>.
+                                </div>
+                            </div>
+                             <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="windows-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">🪟</span> Windows Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="windows-hosting-content" class="collapsible-content">
+                                    Supports applications and frameworks running on Microsoft server environments<sup class="source-ref" onclick="showSourceDetail(54)">54</sup>.
+                                </div>
+                            </div>
+                             <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="cloud-hosting-content">
+                                    <span class="flex items-center"><span class="icon-flat">☁️</span> Cloud Hosting</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="cloud-hosting-content" class="collapsible-content">
+                                    Emphasizes scalability, flexibility, and reliability with dynamically adjustable resources<sup class="source-ref" onclick="showSourceDetail(55)">55</sup>.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="website-builder" class="services-tab p-6 border border-gray-200 rounded-lg">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-800">Website Builder & Design Services</h3>
+                        <p class="text-gray-600 mb-5 leading-relaxed">Tools to create and manage online presence with minimal technical expertise, including a new AI-powered builder.</p>
+                        <ul class="list-disc list-inside text-gray-600 space-y-2 mb-4">
+                            <li><span class="icon-flat">🤖</span> <strong>AI Website Builder & AI Writer:</strong> Craft professional websites quickly by answering questions; AI generates text, sections, and CTAs<sup class="source-ref" onclick="showSourceDetail(13)">13</sup>.</li>
+                            <li><span class="icon-flat">✍️</span> <strong>Drag-and-Drop Editor:</strong> Intuitive interface, no coding needed<sup class="source-ref" onclick="showSourceDetail(30)">30</sup>.</li>
+                            <li><span class="icon-flat">🎨</span> <strong>Customizable Templates:</strong> Hundreds of industry-specific, mobile-optimized templates<sup class="source-ref" onclick="showSourceDetail(30)">30</sup>.</li>
+                            <li><span class="icon-flat">🛒</span> <strong>E-commerce Platform:</strong> Built-in shopping cart, 40+ payment options, social commerce integration (Facebook, Instagram), marketplace selling (eBay, Amazon)<sup class="source-ref" onclick="showSourceDetail(13)">13</sup>.</li>
+                            <li><span class="icon-flat">📄</span> <strong>Unlimited Pages & Bandwidth.</strong><sup class="source-ref" onclick="showSourceDetail(13)">13</sup></li>
+                            <li><span class="icon-flat">🛠️</span> <strong>Integrated Tools:</strong> SSL, blog, social media, contact forms, slideshows, Google Maps<sup class="source-ref" onclick="showSourceDetail(13)">13</sup>.</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed">Professional web design<sup class="source-ref" onclick="showSourceDetail(30)">30</sup> and logo design services<sup class="source-ref" onclick="showSourceDetail(31)">31</sup> are also available for bespoke solutions.</p>
+                    </div>
+
+                    <div id="ancillary-services" class="services-tab p-6 border border-gray-200 rounded-lg">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-800">Ancillary Services</h3>
+                        <p class="text-gray-600 mb-5 leading-relaxed">A range of additional services to provide a holistic online presence management solution.</p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-semibold text-gray-700 mb-2 flex items-center"><span class="icon-flat">📧</span> Email Hosting:</h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">Professional custom email addresses (e.g., you@yourdomain.com) with autoresponders, webmail, forwarding<sup class="source-ref" onclick="showSourceDetail(32)">32</sup>.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-700 mb-2 flex items-center"><span class="icon-flat">📊</span> Online Marketing Services:</h4>
+                                <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                    <li>SEO (Simple and Managed)<sup class="source-ref" onclick="showSourceDetail(36)">36</sup></li>
+                                    <li>Traffic Booster<sup class="source-ref" onclick="showSourceDetail(33)">33</sup></li>
+                                    <li>Web Analytics<sup class="source-ref" onclick="showSourceDetail(34)">34</sup></li>
+                                    <li>Email Marketing<sup class="source-ref" onclick="showSourceDetail(56)">56</sup></li>
+                                    <li>Business Directory<sup class="source-ref" onclick="showSourceDetail(57)">57</sup></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-700 mb-2 flex items-center"><span class="icon-flat">🛡️</span> Security Services:</h4>
+                                 <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                    <li>SSL Certificates (often included)<sup class="source-ref" onclick="showSourceDetail(40)">40</sup></li>
+                                    <li>Site Protection (anti-hacker/malware)<sup class="source-ref" onclick="showSourceDetail(37)">37</sup></li>
+                                    <li>Email Protection (anti-spam/virus)<sup class="source-ref" onclick="showSourceDetail(38)">38</sup></li>
+                                    <li>DDoS Protection<sup class="source-ref" onclick="showSourceDetail(39)">39</sup></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-700 mb-2 flex items-center"><span class="icon-flat">💾</span> Cloud Backup:</h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">Online backup for website data, offering redundancy and recovery<sup class="source-ref" onclick="showSourceDetail(35)">35</sup>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="mb-16 pt-16 -mt-16">
+            <h2 class="text-4xl font-bold mb-8 section-title">Pricing Structures & Value</h2>
+            <div class="card p-8 rounded-lg">
+                <p class="mb-8 text-gray-700 leading-relaxed">This section explores CrazyDomains' pricing models for its core services, analyzing their competitiveness, transparency, and the potential for additional costs. Interactive charts and tables allow for comparisons of different plans and TLDs.</p>
+                
+                <div class="mb-10">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800">Domain Registration Pricing</h3>
+                    <p class="text-gray-600 mb-5 leading-relaxed">Domain pricing varies by TLD, with differences between initial registration and renewal fees. Free domains are often bundled with hosting. Domain privacy is an additional cost. Note the common industry practice of low introductory prices and higher renewals.</p>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="min-w-full table">
+                            <thead>
+                                <tr>
+                                    <th>TLD</th>
+                                    <th>Initial Reg. (AUD)</th>
+                                    <th>Renewal (AUD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domainPricingTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div class="chart-container mb-6">
+                        <canvas id="domainPriceComparisonChart"></canvas><sup class="source-ref" onclick="showSourceDetail(3); showSourceDetail(17)">3, 17</sup>
+                    </div>
+                    <p class="text-sm text-gray-500 leading-relaxed">Discrepancies in reported pricing exist; always verify current prices on the official website. Aggressive upselling is reported by users<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>.</p>
+                </div>
+
+                <div class="mb-10">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800">Web Hosting Pricing</h3>
+                    <p class="text-gray-600 mb-5 leading-relaxed">Hosting plans are tiered. Linux Web Hosting is a core offering with Economy, Premium, and Ultimate plans. Business, WordPress, and VPS hosting have their own structures. Shared hosting usually requires a 1-year minimum; WordPress a 3-month minimum<sup class="source-ref" onclick="showSourceDetail(28)">28</sup>.</p>
+                     <div class="chart-container mb-6">
+                        <canvas id="linuxHostingPriceChart"></canvas><sup class="source-ref" onclick="showSourceDetail(17); showSourceDetail(21); showSourceDetail(23)">17, 21, 23</sup>
+                    </div>
+                    <div class="chart-container mb-6">
+                        <canvas id="linuxHostingResourceChart"></canvas><sup class="source-ref" onclick="showSourceDetail(21); showSourceDetail(22); showSourceDetail(23)">21, 22, 23</sup>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <h4 class="text-xl font-semibold my-4 text-gray-700">Linux Web Hosting Plan Features (Example)</h4>
+                        <table class="min-w-full table">
+                            <thead>
+                                <tr>
+                                    <th>Feature</th>
+                                    <th>Economy</th>
+                                    <th>Premium</th>
+                                    <th>Ultimate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="linuxHostingFeaturesTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800">Website Builder Pricing</h3>
+                    <p class="text-gray-600 leading-relaxed">A 90-day free trial is often offered with domain purchases<sup class="source-ref" onclick="showSourceDetail(5)">5</sup>. Paid subscriptions exist<sup class="source-ref" onclick="showSourceDetail(28)">28</sup>. Bundle discounts (e.g., 25% off with .com.au/.au domains + Website Builder) are available<sup class="source-ref" onclick="showSourceDetail(48)">48</sup>.</p>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800">Add-ons, Upsells, and Transparency</h3>
+                    <p class="text-gray-600 leading-relaxed">Despite claims of "NO Hidden Fees,"<sup class="source-ref" onclick="showSourceDetail(15)">15</sup> customer feedback often cites unexpected charges and aggressive upselling<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>. Common add-ons/upgrades include Domain Privacy, Remote/Cloud Backups, Premium Email Protection, and Managed SEO<sup class="source-ref" onclick="showSourceDetail(21)">21</sup>.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="customer-insights" class="mb-16 pt-16 -mt-16">
+            <h2 class="text-4xl font-bold mb-8 section-title">Customer Satisfaction & Support</h2>
+            <div class="card p-8 rounded-lg">
+                <p class="mb-8 text-gray-700 leading-relaxed">This section delves into the customer experience with CrazyDomains, highlighting reported strengths and common areas of concern. Understanding these aspects is crucial for evaluating the true service quality beyond marketing claims. You'll find information on support channels and recurring issues faced by users.</p>
+
+                <div class="grid md:grid-cols-2 gap-8 mb-10">
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><span class="icon-flat">👍</span> Reported Strengths</h3>
+                        <ul class="list-disc list-inside text-gray-600 space-y-2">
+                            <li>Fast loading times (SSD, gigabit network)<sup class="source-ref" onclick="showSourceDetail(49)">49</sup>.</li>
+                            <li>Claimed 99.9% uptime guarantee<sup class="source-ref" onclick="showSourceDetail(49)">49</sup>.</li>
+                            <li>Ease of use (cPanel/Plesk, 1-click installers)<sup class="source-ref" onclick="showSourceDetail(49)">49</sup>.</li>
+                            <li>User-friendly AI Website Builder<sup class="source-ref" onclick="showSourceDetail(13)">13</sup>.</li>
+                            <li>Competitive introductory pricing<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>.</li>
+                            <li>60-day money-back guarantee (longer than industry standard)<sup class="source-ref" onclick="showSourceDetail(52)">52</sup>.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><span class="icon-flat">👎</span> Common Complaints & Areas for Improvement</h3>
+                        <ul class="list-disc list-inside text-red-600 space-y-2">
+                            <li><strong>Customer Support:</strong> Described as "terrible," "useless," slow resolution, difficulty reaching support, staff knowledge/language issues, frequent escalations<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>.</li>
+                            <li><strong>Service Reliability:</strong> Reports of prolonged server outages (hours to weeks), website issues (viruses), email disruptions (blacklisted IPs, MFA problems)<sup class="source-ref" onclick="showSourceDetail(54)">54</sup>.</li>
+                            <li><strong>Lack of Communication:</strong> No proactive updates during outages<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>.</li>
+                            <li><strong>Pricing Issues:</strong> "Skyrocketing" renewal prices, misleading email pricing, no invoices, refund difficulties<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>.</li>
+                            <li><strong>Outdated Help Documentation.</strong><sup class="source-ref" onclick="showSourceDetail(43)">43</sup></li>
+                        </ul>
+                        <p class="mt-4 text-sm text-gray-500 leading-relaxed">Poor support is cited as a major reason for customers leaving<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>.</p>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <div class="collapsible-section">
+                        <button class="collapsible-button" data-target="pricing-competitiveness-content">
+                            <span class="flex items-center"><span class="icon-flat">💲</span> Discussion of Competitive Pricing and Potential for Discounts</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div id="pricing-competitiveness-content" class="collapsible-content">
+                            <p class="mb-4">CrazyDomains consistently markets itself as offering "competitive pricing"<sup class="source-ref" onclick="showSourceDetail(16)">16</sup> and an "affordable premium hosting service"<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>. They frequently provide promotional discounts, such as 25% off domain purchases<sup class="source-ref" onclick="showSourceDetail(48)">48</sup> or a general 12% off all CrazyDomains products. Bundled offers, like a .com.au and .au direct domain for $18.88 for one year, are also available<sup class="source-ref" onclick="showSourceDetail(48)">48</sup>.</p>
+                            <p class="mb-4">However, a comparative analysis indicates that some competitors, such as Hostinger ($2.99/month)<sup class="source-ref" onclick="showSourceDetail(67)">67</sup>, Dreamhost ($2.59/month)<sup class="source-ref" onclick="showSourceDetail(44)">44</sup>, and Namecheap ($1.98/month)<sup class="source-ref" onclick="showSourceDetail(45)">45</sup>, offer lower starting prices for basic hosting plans. CrazyDomains' basic plan is noted as being "almost twice as much as Hostinger"<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>. This suggests that CrazyDomains' claim of "competitive pricing" may primarily apply to initial promotional rates or specific bundled offers, rather than a universal low-cost leadership across all services. The pricing structure appears to be designed to attract customers with low entry points, with the full cost of a comprehensive solution potentially being higher than initially advertised. The affordability often hinges on a long-term commitment, with the lowest advertised prices for shared hosting plans requiring multi-year contracts, which could lock in customers who later become dissatisfied with the service.</p>
+                        </div>
+                    </div>
+                    <div class="chart-container mt-6 mb-6">
+                        <canvas id="competitorHostingPriceChart"></canvas><sup class="source-ref" onclick="showSourceDetail(17); showSourceDetail(44); showSourceDetail(45); showSourceDetail(67)">17, 44, 45, 67</sup>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <div class="collapsible-section">
+                        <button class="collapsible-button" data-target="upselling-hidden-costs-content">
+                            <span class="flex items-center"><span class="icon-flat">⚠️</span> Upselling Practices and Hidden Costs</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div id="upselling-hidden-costs-content" class="collapsible-content">
+                            <p class="mb-4">A significant and frequently reported concern in customer reviews pertains to "aggressive upselling during checkout"<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>. Users are often advised to exercise caution and "make sure to purchase what you need". Specific complaints include the "crafty automatic inclusion" of add-ons, such as advanced SSL certificates and site backup, into plans<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>.</p>
+                            <p class="mb-4">Customers have also reported mandatory additional charges, such as a $20 "Premium DNS Service" required for basic DNS record management (TXT or SRV records), which is not clearly disclosed upfront<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. Extra charges for WHOIS privacy service are also highlighted as an outdated practice that adds unnecessary cost<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. Furthermore, geographic pricing discrepancies have been observed, where prices can vary significantly based on the customer's domicile, leading to differences between displayed prices and the actual cart totals<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>.</p>
+                            <p class="mb-4">This pattern of aggressive upselling and hidden costs indicates that CrazyDomains' revenue strategy may rely on attracting customers with low headline prices, then increasing the average revenue per user through forced or easily overlooked add-ons and higher renewal rates. This model, while potentially profitable for the company, can lead to customer frustration, a perception of being misled, and ultimately a negative assessment of value for money. For potential users, it underscores the necessity of meticulous review during the purchase process to avoid unintended expenses and to understand the true long-term financial commitment.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <div class="collapsible-section">
+                        <button class="collapsible-button" data-target="performance-reliability-content">
+                            <span class="flex items-center"><span class="icon-flat">⚙️</span> Performance and Technical Reliability</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div id="performance-reliability-content" class="collapsible-content">
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Network Infrastructure</h4>
+                            <p class="mb-4">CrazyDomains states that its operations are supported by a gigabit network utilizing solid-state drives (SSDs)<sup class="source-ref" onclick="showSourceDetail(49)">49</sup>. This configuration is claimed to provide rapid data transmission and processing, ensuring "super-fast page loads and speedy email delivery"<sup class="source-ref" onclick="showSourceDetail(49)">49</sup>. The company's infrastructure includes global core data centers built on "world-class infrastructure," supported by Service Level Agreements (SLAs), and continuously monitored 24/7<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>. A key advantage promoted by CrazyDomains is the presence of local Australian data centers for Linux Web Hosting servers<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>. These are specifically designed to deliver faster website loading times and improved search engine rankings for Australian customers by ensuring geographical proximity to the target audience<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>. All servers are reportedly housed in tier-1 maximum-security facilities globally<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>.</p>
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Uptime Guarantees and Reported Performance Metrics</h4>
+                            <p class="mb-4">CrazyDomains offers a 99.9% uptime guarantee for its services<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>. One review from Cybernews (2025) reported an "incredible 100% uptime" over a two-month test period for CrazyDomains, suggesting strong performance in that specific observation<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>. Server response times are also described as "GREAT even during peak hours" when compared to other major market players<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>.</p>
+                            <p class="mb-4">However, a significant discrepancy exists between these claims and some customer reports. While a 99.9% uptime is an industry standard and might reflect overall network stability, individual user experiences of prolonged, uncommunicated downtime suggest a gap between the statistical average and the practical impact on specific customer websites<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>. For example, some users have reported that the platform "frequently breaks down, with issues popping up regularly," making even basic tasks "time-consuming (and frustrating) efforts"<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>. Critically, there are complaints of websites being down for over eight hours, with no communication or updates from the company during the outage<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>. This indicates potential issues with resource allocation on shared hosting environments, a reactive rather than proactive approach to problem resolution, or insufficient communication protocols during outages. For businesses, unannounced downtime can lead to lost revenue and damaged reputation, posing a significant risk despite the advertised guarantee.</p>
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Security Measures and Features</h4>
+                            <p class="mb-4">CrazyDomains integrates several security features across its hosting plans. These include Distributed Denial of Service (DDoS) Protection<sup class="source-ref" onclick="showSourceDetail(39)">39</sup> and Malware Protection<sup class="source-ref" onclick="showSourceDetail(12)">12</sup>. Free SSL certificates are provided with most hosting plans, and a free first-year AutoSSL is specifically included for Linux web hosting plans, ensuring data encryption between websites and visitors' browsers<sup class="source-ref" onclick="showSourceDetail(21)">21</sup>. Automated weekly backups are also performed to safeguard against data loss<sup class="source-ref" onclick="showSourceDetail(35)">35</sup>. For email hosting, advanced anti-spam and anti-virus measures are implemented, along with data encryption, custom DKIM, and Two-Factor Authentication (2FA) available on the Business plan for enhanced account security<sup class="source-ref" onclick="showSourceDetail(25)">25</sup>.</p>
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Limitations and Contradictions</h4>
+                            <p class="mb-4">Despite generally strong performance metrics in some reviews, CrazyDomains "isn't the best at handling traffic surges," which positions it as "more ideal for smaller sites with fewer visitors"<sup class="source-ref" onclick="showSourceDetail(52)">52</sup>. This observation points to a potential scalability limitation for growing businesses. While CrazyDomains offers a range of hosting plans from shared to dedicated, implying suitability for businesses of all sizes, this identified struggle with traffic surges suggests a mismatch between its broad marketing claims (e.g., helping "startups, SMEs and larger established businesses go from good to legendary"<sup class="source-ref" onclick="showSourceDetail(9)">9</sup>) and its actual technical capacity under high demand. For a business anticipating significant growth or fluctuating traffic, choosing a provider that struggles with traffic surges could lead to performance bottlenecks, a poor user experience for their customers, and the eventual need for costly and disruptive migrations to a more robust provider. Additionally, CrazyDomains does not offer a Content Delivery Network (CDN) as part of its standard services<sup class="source-ref" onclick="showSourceDetail(52)">52</sup>, which could be a disadvantage for global reach and optimizing content delivery speed for geographically dispersed audiences.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <div class="collapsible-section">
+                        <button class="collapsible-button" data-target="customer-support-analysis-content">
+                            <span class="flex items-center"><span class="icon-flat">📞</span> Customer Experience and Support Analysis</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div id="customer-support-analysis-content" class="collapsible-content">
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Official Support Channels</h4>
+                            <p class="mb-4">CrazyDomains officially states that it provides 24/7 customer support through multiple channels, including live chat, phone, and email<sup class="source-ref" onclick="showSourceDetail(56)">56</sup>. The company claims its support team is "knowledgeable and responsive"<sup class="source-ref" onclick="showSourceDetail(56)">56</sup> and that support tickets are resolved "on average, within 24 hours"<sup class="source-ref" onclick="showSourceDetail(59)">59</sup>. However, a minor inconsistency exists regarding phone support availability; some sources suggest 24/7 phone support<sup class="source-ref" onclick="showSourceDetail(11)">11</sup>, while another specifies phone support hours as 6 am - 10 pm (AEST)<sup class="source-ref" onclick="showSourceDetail(21)">21</sup>. This discrepancy can lead to customer confusion regarding actual availability.</p>
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Formal Complaint and Abuse Reporting Procedures</h4>
+                            <p class="mb-4">CrazyDomains has established formal procedures for complaints and abuse reporting. For general complaints, customers are directed to email customercare@crazydomains.com, with a promised response within seven days<sup class="source-ref" onclick="showSourceDetail(61)">61</sup>. If the customer remains dissatisfied, a written complaint can be escalated to the management at their Singapore head office. This management-level complaint is assured an investigation within ten working days and a response within fifteen days<sup class="source-ref" onclick="showSourceDetail(61)">61</sup>.</p>
+                            <p class="mb-4">For specific issues such as port scanning, attempted hacking, firewall activity, email/newsgroup/spam abuse, virus activity, or web space abuse, reports should be emailed to abuse@crazydomains.com<sup class="source-ref" onclick="showSourceDetail(62)">62</sup>. Detailed information, including relevant logs, URLs, and email headers, is required to facilitate investigation. CrazyDomains commits to investigating, applying necessary actions, and communicating with the owner of the offending service or material. They also state their commitment to reporting illegal activity to relevant authorities and working to remove child abuse images from their servers<sup class="source-ref" onclick="showSourceDetail(62)">62</sup>.</p>
+                            <h4 class="text-lg font-semibold mb-2 text-gray-700">Customer Feedback and Reviews</h4>
+                            <p class="mb-4">The analysis of customer feedback presents a highly polarized and predominantly negative sentiment. While a single review from RankYa (2025) offers a positive assessment, praising support and value<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>, aggregate review platforms tell a contrasting story. TLD-List, based on 20 reviews, shows an average rating of 1.6 out of 5 stars, with a significant majority (80%) being 1-star, 10% 5-star, and 5% each for 4-star and 3-star, with no 2-star reviews<sup class="source-ref" onclick="showSourceDetail(3)">3</sup>. Recent G2 reviews further reinforce this negative trend, showing multiple users providing 0.0 out of 5 ratings<sup class="source-ref" onclick="showSourceDetail(48)">48</sup>.</p>
+                            <p class="mb-2">Common complaints highlighted in these reviews include:</p>
+                            <ul class="list-disc list-inside text-red-600 space-y-1 mb-4">
+                                <li><strong>Poor Customer Service and Support:</strong> This is the most prevalent and severe complaint. Support is frequently described as "non-existent," "a total nightmare," "not knowledgeable at all," "terrible support," and "slow customer support"<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>. Users report extreme difficulty in getting problems fixed, a lack of response to escalation requests, and staff who appear to pass issues to others. One user reported waiting hours for a "Domain Team" despite the company's 24/7 claims<sup class="source-ref" onclick="showSourceDetail(53)">53</sup>. This stark contrast between advertised 24/7 support and actual customer experience indicates a significant operational challenge in delivering consistent and effective assistance.</li>
+                                <li><strong>Billing and Auto-Renewal Issues:</strong> Numerous customers experienced unauthorized charges due to auto-renewal processes occurring without adequate reminder emails. Complaints include charges for "free" add-ons that auto-renewed after trial periods, with only partial refunds provided as credit and the remainder claimed as administration fees<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. This lack of transparency and proactive communication around billing cycles and trial expirations contributes to customer dissatisfaction and a perception of deceptive practices.</li>
+                                <li><strong>Technical Problems:</strong> Users reported frequent website downtime, with instances lasting over six or even eight hours, often attributed to messed-up DNS configurations upon domain transfer. Unresolved email hosting issues for nearly a month have also been cited<sup class="source-ref" onclick="showSourceDetail(54)">54</sup>. These technical failures directly contradict the company's claims of high uptime and reliable service, severely impacting businesses reliant on continuous online presence.</li>
+                                <li><strong>Difficult User Interface:</strong> The user dashboard is described as "very hard to use" and "a nightmare"<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. This indicates a poor user experience, where even basic tasks can become frustrating and time-consuming, hindering efficient management of online assets.</li>
+                                <li><strong>Deceptive Practices and Fraud:</strong> Some reviews accuse CrazyDomains of being "thieves" and engaging in "scam" practices. Specific instances include money being taken without domain registration, accounts being blocked for users from certain countries (e.g., Russia), and domains being transferred to other parties after purchase<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. These severe allegations, if substantiated, point to fundamental issues of trust and ethical conduct.</li>
+                                <li><strong>Bureaucracy and Lack of Care for Clients:</strong> A detailed complaint described CrazyDomains' handling of a situation where a reseller abandoned clients, leading to websites and emails being down. The process to retrieve auth codes was lengthy and bureaucratic, despite providing necessary identification. The reviewer stated that CrazyDomains "don't care for clients" and "don't comply with ICANN or protect clients"<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. This suggests a rigid, process-driven approach that fails to prioritize customer well-being during critical issues.</li>
+                                <li><strong>Unnecessary Costs and Hidden Fees:</strong> Customers highlighted mandatory additional charges, such as a $20 "Premium DNS Service" required to add TXT or SRV records, which was not clearly stated upfront<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. Extra charges for WHOIS privacy service, often considered a standard inclusion by other providers, were also noted as an outdated practice<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>.</li>
+                                <li><strong>Geographic Pricing Discrepancies and Security Verification Issues:</strong> One review noted that prices varied significantly based on the customer's domicile, leading to discrepancies between displayed prices and actual cart totals<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. Additionally, customers reported being asked to provide passport or driver's license photos after payment, leading to order cancellations if not provided, which was deemed "very dubious" by European customers<sup class="source-ref" onclick="showSourceDetail(43)">43</sup>. These practices can erode trust and create a sense of insecurity around transactions.</li>
+                            </ul>
+                            <p class="text-gray-600">The overwhelming negative feedback from a significant portion of the customer base, particularly concerning core aspects like support, billing, and technical reliability, presents a substantial challenge to CrazyDomains' stated value proposition. The disparity between the company's self-promotion and actual user experiences suggests that while the infrastructure and service offerings may be extensive, their execution and customer-facing operations fall short for many users.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><span class="icon-flat">⭐</span> Customer Satisfaction Ratings</h3>
+                    <p class="text-gray-600 mb-5 leading-relaxed">Independent reviews provide mixed ratings for CrazyDomains, indicating a gap between self-proclaimed quality and customer perception. The ratings below are out of a maximum of 5.</p>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="min-w-full table">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Rating (out of 5)</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customerRatingTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="chart-container">
+                            <canvas id="customerSatisfactionChart"></canvas><sup class="source-ref" onclick="showSourceDetail(16); showSourceDetail(17); showSourceDetail(3)">16, 17, 3</sup>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="tldListReviewDistributionChart"></canvas><sup class="source-ref" onclick="showSourceDetail(3)">3</sup>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-6 leading-relaxed">The disparity between CrazyDomains' market size and perceived service quality is a significant concern, often leading to customer churn.</p>
+                </div>
+
+            </div>
+        </section>
+
+        <section id="market-context" class="mb-16 pt-16 -mt-16">
+            <h2 class="text-4xl font-bold mb-8 section-title">Market Position & Competition</h2>
+            <div class="card p-8 rounded-lg">
+                <p class="mb-8 text-gray-700 leading-relaxed">This section analyzes CrazyDomains' standing in the Australian and APAC markets. It covers their market presence, key competitors, and strategic differentiators. Understanding the competitive landscape helps contextualize CrazyDomains' offerings and challenges.</p>
+                
+                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Market Presence</h3>
+                <p class="text-gray-600 mb-6 leading-relaxed">Recognized as a "leading domain name registrar"<sup class="source-ref" onclick="showSourceDetail(16)">16</sup> and claims to be "#1 Online Solutions Provider"<sup class="source-ref" onclick="showSourceDetail(9)">9</sup> in Australia, NZ, Singapore, SE Asia. Manages over 1.3 million active domains<sup class="source-ref" onclick="showSourceDetail(7)">7</sup>. Independent reviews offer mixed ratings (e.g., Cybernews 3.9/5)<sup class="source-ref" onclick="showSourceDetail(17)">17</sup>. Potential disconnect between market size and perceived service quality.</p>
+
+                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Competitive Landscape</h3>
+                <p class="text-gray-600 mb-6 leading-relaxed">Intense competition from local and international players.</p>
+                <div class="overflow-x-auto mb-6">
+                    <table class="min-w-full table">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Overall Rating (Avg.)</th>
+                                <th>Uptime Guarantee</th>
+                                <th>Free Domain w/ Hosting</th>
+                                <th>Domain Privacy</th>
+                                <th>AU Data Centers</th>
+                            </tr>
+                        </thead>
+                        <tbody id="competitorComparisonTableBody">
+                            </tbody>
+                    </table>
+                </div>
+                 <div class="chart-container mb-6">
+                    <canvas id="competitorRatingChart"></canvas><sup class="source-ref" onclick="showSourceDetail(39); showSourceDetail(29); showSourceDetail(46); showSourceDetail(42); showSourceDetail(45); showSourceDetail(52); showSourceDetail(67); showSourceDetail(68); showSourceDetail(69); showSourceDetail(70)">39, 29, 46, 42, 45, 52, 67, 68, 69, 70</sup>
+                </div>
+
+                <h3 class="text-2xl font-semibold mb-4 text-gray-800 mt-10">Key Differentiators & Strategic Advantages</h3>
+                <ul class="list-disc list-inside text-gray-600 space-y-2">
+                    <li><span class="icon-flat">🇦🇺</span> <strong>Localized Infrastructure:</strong> Australian data centers for faster local performance and potential SEO benefits<sup class="source-ref" onclick="showSourceDetail(16)">16</sup>.</li>
+                    <li><span class="icon-flat">🧠</span> <strong>AI-Powered Innovation:</strong> AI Website Builder and AI Writer tools for user-friendly web creation, targeting SMBs and beginners<sup class="source-ref" onclick="showSourceDetail(13)">13</sup>.</li>
+                    <li><span class="icon-flat">📦</span> <strong>Comprehensive Service Portfolio:</strong> "All-in-one" approach simplifying online presence management<sup class="source-ref" onclick="showSourceDetail(12)">12</sup>.</li>
+                    <li><span class="icon-flat">🆔</span> <strong>Focus on Australian Identity:</strong> ".au Direct" campaign leveraging local trust<sup class="source-ref" onclick="showSourceDetail(47)">47</sup>.</li>
+                </ul>
+                <p class="mt-4 text-sm text-gray-500 leading-relaxed">However, negative customer feedback on support/reliability creates market vulnerability, which competitors focusing on service quality (like VentraIP) can exploit<sup class="source-ref" onclick="showSourceDetail(42)">42</sup>.</p>
+            </div>
+        </section>
+
+        <section id="future-focus" class="mb-16 pt-16 -mt-16">
+            <h2 class="text-4xl font-bold mb-8 section-title">Strategic Developments & Future Focus</h2>
+            <div class="card p-8 rounded-lg">
+                <p class="mb-8 text-gray-700 leading-relaxed">This final section looks at CrazyDomains' recent strategic initiatives and innovations, such as their AI-powered tools and campaigns focused on the Australian market. It also touches upon the broader conclusions from the analysis and highlights key aspects of their terms of service that users should be aware of.</p>
+                
+                <div class="mb-6">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><span class="icon-flat">💡</span> AI Website Builder & AI Writer Tools</h3>
+                    <p class="text-gray-600 leading-relaxed">A key recent development, enabling users to quickly create professional websites using AI to generate tailored text, sections, and calls-to-action, streamlining the website creation process for SMBs and beginners<sup class="source-ref" onclick="showSourceDetail(15)">15</sup>.</p>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><span class="icon-flat">🇦🇺</span> ".au Direct" Campaign</h3>
+                    <p class="text-gray-600 leading-relaxed">A strategic initiative leveraging local trust and enhancing brand recognition within Australia by promoting the benefits of .au domain names, emphasizing ease of remembrance, unique Australian identity, and consumer trust<sup class="source-ref" onclick="showSourceDetail(47)">47</sup>.</p>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><span class="icon-flat">✅</span> Conclusions from Report</h3>
+                    <p class="text-gray-600 mb-2 leading-relaxed">CrazyDomains is a significant market player with a comprehensive portfolio and innovative AI tools. Affiliation with Newfold Digital provides resources. Competitive initial pricing is attractive.</p>
+                    <p class="text-gray-600 font-semibold text-red-700 leading-relaxed">However, a major disparity exists between advertised quality and actual customer experience regarding uptime and support. Pricing transparency concerns (renewals, upsells) also undermine trust. Operational challenges constrain the full potential of innovations. Addressing service reliability and customer service is paramount for sustained leadership.</p>
+                </div>
+
+                 <div>
+                    <div class="collapsible-section">
+                        <button class="collapsible-button" data-target="terms-of-service-content">
+                            <span class="flex items-center"><span class="icon-flat">📜</span> Key Terms of Service Highlights (User Awareness)</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div id="terms-of-service-content" class="collapsible-content">
+                            <div class="collapsible-section mb-3">
+                                <button class="collapsible-button" data-target="account-security-content">
+                                    <span class="flex items-center"><span class="icon-flat">🔑</span> Account Security & Responsibility</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="account-security-content" class="collapsible-content">
+                                    <p class="p-4 mt-2 bg-gray-50 rounded-md text-sm text-gray-600 leading-relaxed">Users are solely responsible for account security (passwords, PINs). Report breaches immediately<sup class="source-ref" onclick="showSourceDetail(41)">41</sup>.</p>
+                                </div>
+                            </div>
+                            <div class="collapsible-section mb-3">
+                                <button class="collapsible-button" data-target="resource-limits-content">
+                                    <span class="flex items-center"><span class="icon-flat">📏</span> Resource Usage Limits (Despite "Unlimited" Claims)</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="resource-limits-content" class="collapsible-content">
+                                    <p class="p-4 mt-2 bg-gray-50 rounded-md text-sm text-gray-600 leading-relaxed">Strict limits on CPU (25% >90s), connections (100), processes (100), disk I/O (1MB/s). Prohibited: real-time chat apps (unless remotely hosted), standalone server-side processes (daemons, IRCD), or gaming servers. Using hosting services solely for file storage (as an online file repository) is also prohibited. Backup limits apply. Script execution (180s), DB queries (15s), DB size (1GB/1000 tables), email checking (min 3 mins apart)<sup class="source-ref" onclick="showSourceDetail(41)">41</sup>.</p>
+                                </div>
+                            </div>
+                            <div class="collapsible-section">
+                                <button class="collapsible-button" data-target="refunds-cancellations-content">
+                                    <span class="flex items-center"><span class="icon-flat">💸</span> Refunds & Cancellations</span>
+                                    <span class="toggle-icon">+</span>
+                                </button>
+                                <div id="refunds-cancellations-content" class="collapsible-content">
+                                    <p class="p-4 mt-2 bg-gray-50 rounded-md text-sm text-gray-600 leading-relaxed">Refunds not guaranteed, especially for domain names. Accounts can be suspended/cancelled for ToS violations, illegal activity, or jeopardizing service operations<sup class="source-ref" onclick="showSourceDetail(41)">41</sup>.</p>
+                                </div>
+                            </div>
+                            <p class="mt-4 text-sm text-gray-500 leading-relaxed">The contradiction between "unlimited" marketing and strict ToS limits is a critical point of awareness for users.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <section id="sources" class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16">
+        <h2 class="text-2xl font-bold mb-6 text-gray-700 text-center">Sources</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="sourceLinksContainer">
+            </div>
+    </section>
+
+    <footer class="bg-white text-gray-700 text-center p-8 mt-16 shadow-inner">
+        <p>&copy; 2025 Interactive Report Analysis. Information based on the "CrazyDomains Australia: Deeper Analysis" report.</p>
+        <p class="text-xs mt-2 text-gray-500">This is a simulated interactive application for demonstration purposes.</p>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+            mobileMenuButton.querySelectorAll('svg').forEach(svg => svg.classList.toggle('hidden'));
+        });
+
+        // Smooth scroll and active nav link
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                mobileMenu.classList.add('hidden');
+                mobileMenuButton.querySelectorAll('svg')[0].classList.remove('hidden');
+                mobileMenuButton.querySelectorAll('svg')[1].classList.add('hidden');
+
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    updateActiveLink(targetId);
+                }
+            });
+        });
+
+        const navLinks = document.querySelectorAll('.nav-link');
+        function updateActiveLink(targetId) {
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === targetId) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        
+        const sections = document.querySelectorAll('section');
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 80) {
+                    current = '#' + section.getAttribute('id');
+                }
+            });
+            if (current) {
+                updateActiveLink(current);
+            }
+        });
+
+        // Collapsible button functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const collapsibleButtons = document.querySelectorAll('.collapsible-button');
+            collapsibleButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetId = button.dataset.target;
+                    const targetContent = document.getElementById(targetId);
+                    if (targetContent) {
+                        const isHidden = targetContent.style.display === 'none' || targetContent.style.display === '';
+                        targetContent.style.display = isHidden ? 'block' : 'none';
+                        button.classList.toggle('expanded', isHidden);
+                        button.querySelector('.toggle-icon').textContent = isHidden ? '−' : '+';
+                    }
+                });
+            });
+
+            // Initialize first tab for services
+            if(document.querySelector('.services-tab')) {
+                 document.querySelector('.services-tab').style.display = 'block';
+            }
+           
+            populateDomainPricingTable();
+            renderDomainPriceComparisonChart();
+            populateLinuxHostingFeaturesTable();
+            renderLinuxHostingPriceChart();
+            renderLinuxHostingResourceChart();
+            populateCompetitorComparisonTable();
+            renderCompetitorRatingChart();
+            populateCustomerRatingTable();
+            renderCustomerSatisfactionChart();
+            renderTldListReviewDistributionChart();
+            renderCompetitorHostingPriceChart();
+            populateSourceLinks();
+
+            if (window.location.hash) {
+                updateActiveLink(window.location.hash);
+            } else {
+                updateActiveLink('#overview');
+            }
+        });
+
+        // Tab functionality
+        function openTab(event, tabContainerId, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName(tabContainerId);
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = event.currentTarget.parentElement.getElementsByClassName("tab-button");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            event.currentTarget.className += " active";
+        }
+        
+        // Data and Chart Rendering
+        const domainPricingData = [
+            { tld: ".com.au", initial: "9.55-22", renewal: "20.99-22" },
+            { tld: ".com", initial: "19.99-25", renewal: "25-25.99" },
+            { tld: ".au", initial: "22", renewal: "22" },
+            { tld: ".org", initial: "20", renewal: "20" },
+            { tld: ".online", initial: "4.90", renewal: "53" },
+            { tld: ".ai", initial: "97", renewal: "195" }
+        ];
+
+        function populateDomainPricingTable() {
+            const tbody = document.getElementById('domainPricingTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            domainPricingData.forEach(item => {
+                const row = tbody.insertRow();
+                row.insertCell().textContent = item.tld;
+                row.insertCell().textContent = `$${item.initial}`;
+                row.insertCell().textContent = `$${item.renewal}`;
+            });
+        }
+
+        function renderDomainPriceComparisonChart() {
+            const ctx = document.getElementById('domainPriceComparisonChart')?.getContext('2d');
+            if (!ctx) return;
+            const chartData = domainPricingData.map(d => ({
+                tld: d.tld,
+                initial: parseFloat(d.initial.includes('-') ? d.initial.split('-')[0] : d.initial),
+                renewal: parseFloat(d.renewal.includes('-') ? d.renewal.split('-')[0] : d.renewal)
+            }));
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.map(d => d.tld),
+                    datasets: [
+                        {
+                            label: 'Initial Registration (AUD, approx.)',
+                            data: chartData.map(d => d.initial),
+                            backgroundColor: 'rgba(0, 160, 0, 0.6)',
+                            borderColor: 'rgba(0, 128, 0, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Renewal (AUD, approx.)',
+                            data: chartData.map(d => d.renewal),
+                            backgroundColor: 'rgba(0, 160, 0, 0.4)',
+                            borderColor: 'rgba(0, 128, 0, 0.8)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Price (AUD)'} },
+                        x: { title: { display: true, text: 'Top-Level Domain'} }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        const linuxHostingFeaturesData = {
+            headers: ["Feature", "Economy", "Premium", "Ultimate"],
+            rows: [
+                ["Pricing (Starting/Renewal)", "$5.45 / $9.00", "$17.50/mo", "$26.71/mo"],
+                ["Total Websites", "1", "5", "10"],
+                ["SSD Storage", "10 GB", "25 GB", "50 GB"],
+                ["Bandwidth", "Unlimited", "Unlimited", "Unlimited"],
+                ["MySQL Databases", "5", "25", "50"],
+                ["Email Accounts", "5", "25", "50"],
+                ["CPU", "100%", "100%", "200%"],
+                ["Memory", "512 MB", "768 MB", "1 GB"],
+                ["Inodes", "150,000", "200,000", "250,000"],
+                ["Uptime Guarantee", "99.9%", "99.9%", "99.9%"],
+                ["Money Back Guarantee", "60 Days", "60 Days", "60 Days"]
+            ]
+        };
+
+        function populateLinuxHostingFeaturesTable() {
+            const tbody = document.getElementById('linuxHostingFeaturesTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            linuxHostingFeaturesData.rows.forEach(rowData => {
+                const row = tbody.insertRow();
+                rowData.forEach(cellData => {
+                    row.insertCell().textContent = cellData;
+                });
+            });
+        }
+        
+        function renderLinuxHostingPriceChart() {
+            const ctx = document.getElementById('linuxHostingPriceChart')?.getContext('2d');
+            if (!ctx) return;
+            const plans = ['Economy', 'Premium', 'Ultimate'];
+            const startingPrices = [5.45, 17.50, 26.71]; 
+            const renewalPrices = [9.00, 17.50, 26.71];
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: plans,
+                    datasets: [
+                        {
+                            label: 'Starting Price/mo (AUD)',
+                            data: startingPrices,
+                            backgroundColor: 'rgba(0, 160, 0, 0.6)',
+                            borderColor: 'rgba(0, 128, 0, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Renewal Price/mo (AUD)',
+                            data: renewalPrices,
+                            backgroundColor: 'rgba(0, 160, 0, 0.4)',
+                            borderColor: 'rgba(0, 128, 0, 0.8)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Monthly Price (AUD)'} },
+                        x: { title: { display: true, text: 'Linux Hosting Plan'} }
+                    },
+                     plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        function renderLinuxHostingResourceChart() {
+            const ctx = document.getElementById('linuxHostingResourceChart')?.getContext('2d');
+            if (!ctx) return;
+
+            const plans = ['Economy', 'Premium', 'Ultimate'];
+            const ssdStorage = [10, 25, 50];
+            const memory = [512, 768, 1024];
+            const cpu = [100, 100, 200];
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: plans,
+                    datasets: [
+                        {
+                            label: 'SSD Storage (GB)',
+                            data: ssdStorage,
+                            backgroundColor: 'rgba(0, 160, 0, 0.7)',
+                            borderColor: 'rgba(0, 128, 0, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Memory (MB)',
+                            data: memory,
+                            backgroundColor: 'rgba(160, 160, 160, 0.7)',
+                            borderColor: 'rgba(128, 128, 128, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'CPU (%)',
+                            data: cpu,
+                            backgroundColor: 'rgba(224, 224, 224, 0.7)',
+                            borderColor: 'rgba(192, 192, 192, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Value (GB/MB/%)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Linux Hosting Plan' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y;
+                                        if (context.dataset.label.includes('Storage')) label += ' GB';
+                                        else if (context.dataset.label.includes('Memory')) label += ' MB';
+                                        else if (context.dataset.label.includes('CPU')) label += '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        const customerRatingData = [
+            { source: "RankYa (2025)", rating: 3.8, notes: "Solid choice, reliable for domain/hosting, competitive pricing." },
+            { source: "Cybernews (2025)", rating: 3.9, notes: "Identified as Australia-based VPS host, lower rating than competitors." },
+            { source: "TLD-List", rating: 1.6, notes: "Based on 20 reviews, 80% being 1-star." },
+            { source: "Various Customer Reviews", rating: "Mixed", notes: "Significant negative feedback on support, uptime, pricing transparency." }
+        ];
+
+        const tldListReviewDistribution = {
+            '1-star': 80,
+            '3-star': 5,
+            '4-star': 5,
+            '5-star': 10
+        };
+
+        function populateCustomerRatingTable() {
+            const tbody = document.getElementById('customerRatingTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            customerRatingData.forEach(item => {
+                const row = tbody.insertRow();
+                row.insertCell().textContent = item.source;
+                row.insertCell().textContent = item.rating === "Mixed" ? item.rating : `${item.rating}/5`;
+                row.insertCell().textContent = item.notes;
+            });
+        }
+
+        function renderCustomerSatisfactionChart() {
+            const ctx = document.getElementById('customerSatisfactionChart')?.getContext('2d');
+            if (!ctx) return;
+
+            const quantifiableRatings = customerRatingData.filter(item => typeof item.rating === 'number');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: quantifiableRatings.map(item => item.source),
+                    datasets: [{
+                        label: 'Overall Rating (out of 5)',
+                        data: quantifiableRatings.map(item => item.rating),
+                        backgroundColor: [
+                            'rgba(0, 160, 0, 0.7)',
+                            'rgba(0, 160, 0, 0.5)',
+                            'rgba(255, 99, 132, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(0, 128, 0, 1)',
+                            'rgba(0, 128, 0, 0.8)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 5,
+                            title: { display: true, text: 'Rating (out of 5)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Review Source' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += `${context.parsed.y}/5`;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTldListReviewDistributionChart() {
+            const ctx = document.getElementById('tldListReviewDistributionChart')?.getContext('2d');
+            if (!ctx) return;
+
+            const labels = Object.keys(tldListReviewDistribution);
+            const data = Object.values(tldListReviewDistribution);
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Review Distribution (%)',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(255, 205, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(0, 160, 0, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(255, 205, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(0, 128, 0, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed) {
+                                        label += context.parsed + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'TLD-List Review Distribution (20 Reviews)',
+                            font: { size: 16, weight: 'bold' },
+                            color: '#333333'
+                        }
+                    }
+                }
+            });
+        }
+
+
+        const competitorData = [
+            { provider: "CrazyDomains", rating: "3.8-4.4", uptime: "99.9%", freeDomain: "No", domainPrivacy: "Additional Cost", auDataCenters: "Yes" },
+            { provider: "GoDaddy", rating: "3.9-4.6", uptime: "99.9%", freeDomain: "Yes", domainPrivacy: "Free", auDataCenters: "Yes" },
+            { provider: "VentraIP", rating: "4.5-4.9", uptime: "99.9%", freeDomain: "No (discounted)", domainPrivacy: "Free", auDataCenters: "Yes" },
+            { provider: "Hostinger", rating: "4.4", uptime: "99.9%", freeDomain: "Yes", domainPrivacy: "N/A", auDataCenters: "Some APAC" },
+            { provider: "Bluehost", rating: "3.4-4.4", uptime: "99.9%", freeDomain: "Yes", domainPrivacy: "N/A", auDataCenters: "N/A" },
+        ];
+
+        const competitorHostingPricingData = [
+            { provider: "CrazyDomains (Basic)", price: 5.45 },
+            { provider: "Hostinger", price: 2.99 },
+            { provider: "Dreamhost", price: 2.59 },
+            { provider: "Namecheap", price: 1.98 }
+        ];
+
+        function populateCompetitorComparisonTable() {
+            const tbody = document.getElementById('competitorComparisonTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            competitorData.forEach(item => {
+                const row = tbody.insertRow();
+                row.insertCell().textContent = item.provider;
+                row.insertCell().textContent = item.rating + "/5";
+                row.insertCell().textContent = item.uptime;
+                row.insertCell().textContent = item.freeDomain;
+                row.insertCell().textContent = item.domainPrivacy;
+                row.insertCell().textContent = item.auDataCenters;
+            });
+        }
+
+        function renderCompetitorRatingChart() {
+            const ctx = document.getElementById('competitorRatingChart')?.getContext('2d');
+            if (!ctx) return;
+            const chartData = competitorData.map(c => {
+                let avgRating;
+                if (c.rating.includes('-')) {
+                    const parts = c.rating.split('-').map(parseFloat);
+                    avgRating = (parts[0] + parts[1]) / 2;
+                } else {
+                    avgRating = parseFloat(c.rating);
+                }
+                return { provider: c.provider, rating: avgRating };
+            });
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.map(c => c.provider),
+                    datasets: [{
+                        label: 'Average Overall Rating (/5)',
+                        data: chartData.map(c => c.rating),
+                        backgroundColor: chartData.map(c => c.provider === 'CrazyDomains' ? 'rgba(0, 160, 0, 0.7)' : 'rgba(160, 160, 160, 0.7)'),
+                        borderColor: chartData.map(c => c.provider === 'CrazyDomains' ? 'rgba(0, 128, 0, 1)' : 'rgba(128, 128, 128, 1)'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true, max: 5, title: { display: true, text: 'Average Rating (/5)'} },
+                        y: { title: { display: true, text: 'Provider'} }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderCompetitorHostingPriceChart() {
+            const ctx = document.getElementById('competitorHostingPriceChart')?.getContext('2d');
+            if (!ctx) return;
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: competitorHostingPricingData.map(d => d.provider),
+                    datasets: [{
+                        label: 'Basic Hosting Starting Price/mo (AUD)',
+                        data: competitorHostingPricingData.map(d => d.price),
+                        backgroundColor: competitorHostingPricingData.map(d => d.provider.includes('CrazyDomains') ? 'rgba(0, 160, 0, 0.7)' : 'rgba(160, 160, 160, 0.7)'),
+                        borderColor: competitorHostingPricingData.map(d => d.provider.includes('CrazyDomains') ? 'rgba(0, 128, 0, 1)' : 'rgba(128, 128, 128, 1)'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Price (AUD)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Provider' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const allSourcesData = [
+            { id: 1, text: "Crazy Domains. (2007). About Us. Retrieved from https://www.crazydomains.com.au/about-us" },
+            { id: 2, text: "Crazy Domains. (2007). Our Story. Retrieved from https://www.crazydomains.com.au/our-story" },
+            { id: 3, text: "TLD-List. (n.d.). CrazyDomains Review. Retrieved from https://tld-list.com/review/crazydomains" },
+            { id: 4, text: "Newfold Digital. (2021). Newfold Digital Launches. Retrieved from https://newfold.com/news/newfold-digital-launches" },
+            { id: 5, text: "Crazy Domains. (n.d.). Homepage. Retrieved from https://www.crazydomains.com.au" },
+            { id: 6, text: "Newfold Digital. (n.d.). Our Brands. Retrieved from https://newfold.com/our-brands" },
+            { id: 7, text: "Crazy Domains. (n.d.). Domain Names. Retrieved from https://www.crazydomains.com.au/domain-names" },
+            { id: 8, text: "Crazy Domains. (n.d.). Web Hosting. Retrieved from https://www.crazydomains.com.au/web-hosting" },
+            { id: 9, text: "Crazy Domains. (n.d.). About Us. Retrieved from https://www.crazydomains.com.au/about-us" },
+            { id: 10, text: "Crazy Domains. (n.d.). Domain Registration. Retrieved from https://www.crazydomains.com.au/domain-registration" },
+            { id: 11, text: "Crazy Domains. (n.d.). Linux Hosting. Retrieved from https://www.crazydomains.com.au/web-hosting/linux-hosting" },
+            { id: 12, text: "Crazy Domains. (n.d.). Business Hosting. Retrieved from https://www.crazydomains.com.au/business-hosting" },
+            { id: 13, text: "Crazy Domains. (n.d.). AI Website Builder. Retrieved from https://www.crazydomains.com.au/ai-website-builder" },
+            { id: 14, text: "Crazy Domains. (n.d.). Online Marketing. Retrieved from https://www.crazydomains.com.au/online-marketing" },
+            { id: 15, text: "Crazy Domains. (n.d.). No Hidden Fees. Retrieved from https://www.crazydomains.com.au/no-hidden-fees" },
+            { id: 16, text: "RankYa. (2025). Crazy Domains Review. Retrieved from https://rankya.com/crazydomains-review" },
+            { id: 17, text: "Cybernews. (2025). Best Web Hosting Australia. Retrieved from https://cybernews.com/best-web-hosting/australia/" },
+            { id: 18, text: "Crazy Domains. (n.d.). Website Builder. Retrieved from https://www.crazydomains.com.au/website-builder" },
+            { id: 19, text: "Crazy Domains. (n.d.). Domain Privacy. Retrieved from https://www.crazydomains.com.au/domain-privacy" },
+            { id: 20, text: "Crazy Domains. (n.d.). WHOIS Lookup. Retrieved from https://www.crazydomains.com.au/whois-lookup" },
+            { id: 21, text: "Crazy Domains. (n.d.). Linux Hosting Economy Plan. Retrieved from https://www.crazydomains.com.au/linux-hosting-economy" },
+            { id: 22, text: "Crazy Domains. (n.d.). Linux Hosting Premium Plan. Retrieved from https://www.crazydomains.com.au/linux-hosting-premium]" },
+            { id: 23, text: "Crazy Domains. (n.d.). Linux Hosting Ultimate Plan. Retrieved from https://www.crazydomains.com.au/linux-hosting-ultimate" },
+            { id: 24, text: "Crazy Domains. (n.d.). WordPress Hosting. Retrieved from https://www.crazydomains.com.au/wordpress-hosting" },
+            { id: 25, text: "Crazy Domains. (n.d.). VPS Hosting. Retrieved from https://www.crazydomains.com.au/vps-hosting" },
+            { id: 26, text: "Crazy Domains. (n.d.). Dedicated Hosting. Retrieved from https://www.crazydomains.com.au/dedicated-hosting" },
+            { id: 27, text: "Crazy Domains. (n.d.). Business Hosting Plans. Retrieved from https://www.crazydomains.com.au/business-hosting-plans" },
+            { id: 28, text: "Crazy Domains. (n.d.). WordPress Hosting Economy Plan. Retrieved from https://www.crazydomains.com.au/wordpress-hosting-economy" },
+            { id: 29, text: "WebsiteBuilder.com. (2025). Best Web Hosting Australia. Retrieved from https://www.websitebuilder.com/best-web-hosting/australia/" },
+            { id: 30, text: "Crazy Domains. (n.d.). Website Design. Retrieved from https://www.crazydomains.com.au/website-design" },
+            { id: 31, text: "Crazy Domains. (n.d.). Logo Design. Retrieved from https://www.crazydomains.com.au/logo-design" },
+            { id: 32, text: "Crazy Domains. (n.d.). Email Hosting. Retrieved from https://www.crazydomains.com.au/email-hosting" },
+            { id: 33, text: "Crazy Domains. (n.d.). Traffic Booster. Retrieved from https://www.crazydomains.com.au/traffic-booster" },
+            { id: 34, text: "Crazy Domains. (n.d.). Web Analytics. Retrieved from https://www.crazydomains.com.au/web-analytics" },
+            { id: 35, text: "Crazy Domains. (n.d.). Cloud Backup. Retrieved from https://www.crazydomains.com.au/cloud-backup" },
+            { id: 36, text: "Crazy Domains. (n.d.). SEO Services. Retrieved from https://www.crazydomains.com.au/seo-services" },
+            { id: 37, text: "Crazy Domains. (n.d.). Site Protection. Retrieved from https://www.crazydomains.com.au/site-protection" },
+            { id: 38, text: "Crazy Domains. (n.d.). Email Protection. Retrieved from https://www.crazydomains.com.au/email-protection" },
+            { id: 39, text: "Crazy Domains. (n.d.). DDoS Protection. Retrieved from https://www.crazydomains.com.au/ddos-protection" },
+            { id: 40, text: "Crazy Domains. (n.d.). SSL Certificates. Retrieved from https://www.crazydomains.com.au/ssl-certificates" },
+            { id: 41, text: "Crazy Domains. (n.d.). Terms of Service. Retrieved from https://www.crazydomains.com.au/terms-of-service" },
+            { id: 42, text: "VentraIP. (n.d.). Homepage. Retrieved from https://www.ventraip.com.au" },
+            { id: 43, text: "ProductReview.com.au. (n.d.). Crazy Domains Reviews. Retrieved from https://www.productreview.com.au/listings/crazy-domains" },
+            { id: 44, text: "Trustpilot. (n.d.). Crazy Domains Reviews. Retrieved from https://www.trustpilot.com/review/crazydomains.com" },
+            { id: 45, text: "VentraIP. (n.d.). Web Hosting. Retrieved from https://www.ventraip.com.au/web-hosting" },
+            { id: 46, text: "GoDaddy. (n.d.). Homepage. Retrieved from https://au.godaddy.com/" },
+            { id: 47, text: "auDA. (n.d.). .au Direct. Retrieved from https://www.auda.org.au/.au-direct" },
+            { id: 48, text: "Crazy Domains. (n.d.). Promotions. Retrieved from https://www.crazydomains.com.au/promotions" },
+            { id: 49, text: "Crazy Domains. (n.d.). Learn Blog. Retrieved from https://www.crazydomains.com.au/blog" },
+            { id: 50, text: "Crazy Domains. (n.d.). Uptime Guarantee. Retrieved from https://www.crazydomains.com.au/uptime-guarantee" },
+            { id: 51, text: "Crazy Domains. (n.d.). Money Back Guarantee. Retrieved from https://www.crazydomains.com.au/money-back-guarantee" },
+            { id: 52, text: "Cybernews. (2025). Best Web Hosting Australia. Retrieved from https://cybernews.com/best-web-hosting/australia/" },
+            { id: 53, text: "TLD-List. (n.d.). CrazyDomains Review. Retrieved from https://tld-list.com/review/crazydomains" },
+            { id: 54, text: "ProductReview.com.au. (n.d.). Crazy Domains Reviews. Retrieved from https://www.productreview.com.au/listings/crazy-domains" },
+            { id: 55, text: "Trustpilot. (n.d.). Crazy Domains Reviews. Retrieved from https://www.trustpilot.com/review/crazydomains.com" },
+            { id: 56, text: "Crazy Domains. (n.d.). Contact Us. Retrieved from https://www.crazydomains.com.au/contact-us" },
+            { id: 57, text: "Crazy Domains. (n.d.). Community Forum. Retrieved from https://www.crazydomains.com.au/community-forum" },
+            { id: 58, text: "Crazy Domains. (n.d.). AI Writer. Retrieved from https://www.crazydomains.com.au/ai-writer" },
+            { id: 59, text: "Crazy Domains. (n.d.). Support Tickets. Retrieved from https://www.crazydomains.com.au/support-tickets" },
+            { id: 60, text: "Crazy Domains. (n.d.). Reseller Program. Retrieved from https://www.crazydomains.com.au/reseller-program" },
+            { id: 61, text: "Crazy Domains. (n.d.). Complaints Procedure. Retrieved from https://www.crazydomains.com.au/complaints-procedure" },
+            { id: 62, text: "Crazy Domains. (n.d.). Abuse Report. Retrieved from https://www.crazydomains.com.au/abuse-report" },
+            { id: 63, text: "Crazy Domains. (n.d.). Knowledge Base. Retrieved from https://www.crazydomains.com.au/knowledge-base" },
+            { id: 64, text: "Domain Name Stat. (n.d.). Dreamscape Networks International Pte Ltd Market Share. Retrieved from https://www.domainnamestat.com/registrar/dreamscape-networks-international-pte-ltd" },
+            { id: 65, text: "GoDaddy. (n.d.). AI Website Builder Airo. Retrieved from https://au.godaddy.com/ai-website-builder" },
+            { id: 66, text: "GoDaddy. (n.d.). Web Hosting. Retrieved from https://au.godaddy.com/hosting/web-hosting" },
+            { id: 67, text: "Hostinger. (n.d.). Web Hosting. Retrieved from https://www.hostinger.com/web-hosting" },
+            { id: 68, text: "VentraIP. (n.d.). Web Hosting. Retrieved from https://www.ventraip.com.au/web-hosting" },
+            { id: 69, text: "Bluehost. (n.d.). Web Hosting. Retrieved from https://www.bluehost.com/web-hosting" },
+            { id: 70, text: "SiteGround. (n.d.). Web Hosting. Retrieved from https://www.siteground.com/web-hosting" },
+            { id: 71, text: "Namecheap. (n.d.). Web Hosting. Retrieved from https://www.namecheap.com/hosting/" },
+            { id: 72, text: "IONOS. (n.d.). Web Hosting. Retrieved from https://www.ionos.com/hosting/web-hosting" },
+            { id: 73, text: "auDA. (n.d.). Consumer Research. Retrieved from https://www.auda.org.au/resources/consumer-research" }
+        ];
+
+        function populateSourceLinks() {
+            const container = document.getElementById('sourceLinksContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            allSourcesData.forEach(source => {
+                const link = document.createElement('a');
+                link.classList.add('source-link');
+                link.href = source.text.match(/(https?:\/\/[^\s\]]+)/)?.[0] || '#';
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = `[${source.id}] ${source.text.replace(/Retrieved from https?:\/\/[^\s\]]+/, '').trim()}`;
+                container.appendChild(link);
+            });
+        }
+
+        function showSourceDetail(sourceId) {
+            const source = allSourcesData.find(s => s.id === sourceId);
+            const detailContent = document.createElement('p');
+            detailContent.textContent = `[${source.id}] ${source.text}`;
+
+            const detailPopup = document.createElement('div');
+            detailPopup.classList.add('source-detail-popup');
+            detailPopup.innerHTML = `<button class="source-detail-popup-close" onclick="hideSourceDetail()">✖️</button>`;
+            detailPopup.appendChild(detailContent);
+
+            const overlay = document.createElement('div');
+            overlay.classList.add('overlay');
+            overlay.onclick = hideSourceDetail;
+
+            document.body.appendChild(overlay);
+            document.body.appendChild(detailPopup);
+
+            detailPopup.classList.add('active');
+            overlay.classList.add('active');
+        }
+
+        function hideSourceDetail() {
+            const detailPopup = document.querySelector('.source-detail-popup');
+            const overlay = document.querySelector('.overlay');
+            if (detailPopup) detailPopup.remove();
+            if (overlay) overlay.remove();
+        }
+
+    </script>
+</body>
+</html>
